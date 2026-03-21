@@ -1,0 +1,62 @@
+[
+  {
+    "model": "professionals.professional",
+    "pk": "11111111-1111-1111-1111-111111111111",
+    "fields": {
+      "social_name": "Dra. Ana Lima",
+      "profession": "medico",
+      "council_number": "CRM/SP 123456",
+      "street": "Av. Paulista",
+      "number": "1578",
+      "complement": "Sala 301",
+      "neighborhood": "Bela Vista",
+      "city": "São Paulo",
+      "state": "SP",
+      "postal_code": "01310-200",
+      "email": "ana.lima@lacreisaude.example.com",
+      "phone": "11999111111",
+      "whatsapp": "11999111111",
+      "is_active": true
+    }
+  },
+  {
+    "model": "professionals.professional",
+    "pk": "22222222-2222-2222-2222-222222222222",
+    "fields": {
+      "social_name": "Dr. Carlos Oliveira",
+      "profession": "psicologo",
+      "council_number": "CRP/SP 54321",
+      "street": "Rua Augusta",
+      "number": "200",
+      "complement": "",
+      "neighborhood": "Consolação",
+      "city": "São Paulo",
+      "state": "SP",
+      "postal_code": "01305-000",
+      "email": "carlos.oliveira@lacreisaude.example.com",
+      "phone": "11988222222",
+      "whatsapp": "",
+      "is_active": true
+    }
+  },
+  {
+    "model": "professionals.professional",
+    "pk": "33333333-3333-3333-3333-333333333333",
+    "fields": {
+      "social_name": "Marina Costa",
+      "profession": "nutricionista",
+      "council_number": "CRN/SP 9876",
+      "street": "Rua Oscar Freire",
+      "number": "55",
+      "complement": "Conjunto 5",
+      "neighborhood": "Jardins",
+      "city": "São Paulo",
+      "state": "SP",
+      "postal_code": "01426-001",
+      "email": "marina.costa@lacreisaude.example.com",
+      "phone": "11977333333",
+      "whatsapp": "11977333333",
+      "is_active": true
+    }
+  }
+]

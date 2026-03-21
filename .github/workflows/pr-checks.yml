@@ -1,0 +1,67 @@
+name: 🔎 PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    name: Validação do PR
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: lacrei_test
+          POSTGRES_USER: lacrei_user
+          POSTGRES_PASSWORD: lacrei_pass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: pr-test-secret-key
+      DB_HOST: localhost
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: snok/install-poetry@v1
+        with:
+          version: "1.8.2"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Instalar dependências
+        run: poetry install --no-interaction
+
+      - name: Lint rápido
+        run: |
+          poetry run ruff check .
+          poetry run black --check .
+
+      - name: Testes rápidos (sem cobertura — feedback rápido no PR)
+        run: |
+          poetry run python manage.py migrate --settings=config.settings.test
+          poetry run pytest -x -q --tb=short
+
+      - name: Verificar migrações pendentes
+        run: |
+          poetry run python manage.py makemigrations --check --dry-run \
+            --settings=config.settings.test || \
+            (echo "⚠️ Existem migrações não geradas! Execute makemigrations." && exit 1)

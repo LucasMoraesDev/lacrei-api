@@ -1,0 +1,31 @@
+# ruff.toml — configuração do linter Ruff
+line-length = 88
+target-version = "py311"
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "S",   # bandit (security)
+    "DJ",  # flake8-django
+]
+ignore = [
+    "E501",   # line too long — Black lida com isso
+    "S101",   # use of assert — ok em testes
+    "S106",   # hardcoded passwords — falso positivo em configurações de teste
+    "DJ001",  # null=True em CharField — decisão intencional em alguns casos
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S", "N"]             # Segurança e naming mais relaxados em testes
+"config/settings/*" = ["F401", "F403"]  # Wildcard imports nos settings são intencionais
+"*/migrations/*" = ["E501", "N"]   # Migrações geradas automaticamente
+
+[lint.isort]
+known-first-party = ["apps", "config"]

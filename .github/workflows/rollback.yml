@@ -1,0 +1,105 @@
+name: 🔄 Rollback Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente para rollback"
+        required: true
+        type: choice
+        options: [staging, production]
+      revision:
+        description: "Revisão da task definition (deixe vazio para a anterior)"
+        required: false
+        type: string
+      reason:
+        description: "Motivo do rollback"
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  rollback:
+    name: 🔄 Rollback → ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Determinar cluster e serviço
+        id: env-config
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            echo "cluster=lacrei-production" >> $GITHUB_OUTPUT
+            echo "service=lacrei-api-production" >> $GITHUB_OUTPUT
+            echo "task_family=lacrei-api-production" >> $GITHUB_OUTPUT
+          else
+            echo "cluster=lacrei-staging" >> $GITHUB_OUTPUT
+            echo "service=lacrei-api-staging" >> $GITHUB_OUTPUT
+            echo "task_family=lacrei-api-staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determinar revisão alvo
+        id: target-revision
+        run: |
+          if [ -n "${{ inputs.revision }}" ]; then
+            TARGET_REVISION="${{ inputs.revision }}"
+          else
+            # Pega a revisão atual e subtrai 1
+            CURRENT=$(aws ecs describe-task-definition \
+              --task-definition ${{ steps.env-config.outputs.task_family }} \
+              --query 'taskDefinition.revision' \
+              --output text)
+            TARGET_REVISION=$((CURRENT - 1))
+            echo "Revisão atual: $CURRENT → Rollback para: $TARGET_REVISION"
+          fi
+          echo "revision=$TARGET_REVISION" >> $GITHUB_OUTPUT
+
+      - name: Executar rollback
+        run: |
+          TASK_FAMILY="${{ steps.env-config.outputs.task_family }}"
+          TARGET="${TASK_FAMILY}:${{ steps.target-revision.outputs.revision }}"
+
+          echo "🔄 Revertendo para $TARGET"
+          echo "Motivo: ${{ inputs.reason }}"
+
+          aws ecs update-service \
+            --cluster ${{ steps.env-config.outputs.cluster }} \
+            --service ${{ steps.env-config.outputs.service }} \
+            --task-definition $TARGET \
+            --force-new-deployment
+
+          echo "Aguardando serviço estabilizar..."
+          aws ecs wait services-stable \
+            --cluster ${{ steps.env-config.outputs.cluster }} \
+            --services ${{ steps.env-config.outputs.service }}
+
+          echo "✅ Rollback concluído para $TARGET!"
+
+      - name: Smoke test pós-rollback
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            URL="https://api.lacreisaude.com.br/api/v1/health/"
+          else
+            URL="https://api-staging.lacreisaude.com.br/api/v1/health/"
+          fi
+          sleep 30
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check falhou após rollback!"
+            exit 1
+          fi
+          echo "✅ Sistema saudável após rollback (status $STATUS)"
+
+      - name: Registrar rollback no log de auditoria
+        if: always()
+        run: |
+          echo "ROLLBACK | $(date -u +%Y-%m-%dT%H:%M:%SZ) | env=${{ inputs.environment }} | revision=${{ steps.target-revision.outputs.revision }} | reason=${{ inputs.reason }} | actor=${{ github.actor }} | status=${{ job.status }}"

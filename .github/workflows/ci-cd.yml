@@ -1,0 +1,377 @@
+name: 🚀 CI/CD Pipeline — Lacrei Saúde API
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "1.8.2"
+  ECR_REPOSITORY: lacrei-saude-api
+  AWS_REGION: us-east-1
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Static Analysis
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache de dependências
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: venv-${{ runner.os }}-
+
+      - name: Instalar dependências
+        run: poetry install --no-interaction
+
+      - name: Ruff — Linting
+        run: poetry run ruff check .
+
+      - name: Black — Formatação
+        run: poetry run black --check .
+
+      - name: Mypy — Type checking
+        run: poetry run mypy apps/
+        continue-on-error: true   # Não bloqueia o pipeline em warnings de type
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Testes Automatizados
+  # ─────────────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Testes & Cobertura
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: lacrei_test
+          POSTGRES_USER: lacrei_user
+          POSTGRES_PASSWORD: lacrei_pass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      DB_NAME: lacrei_test
+      DB_USER: lacrei_user
+      DB_PASSWORD: lacrei_pass
+      DB_HOST: localhost
+      DB_PORT: "5432"
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache de dependências
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: venv-${{ runner.os }}-
+
+      - name: Instalar dependências
+        run: poetry install --no-interaction
+
+      - name: Executar migrações
+        run: poetry run python manage.py migrate --settings=config.settings.test
+
+      - name: Rodar testes com cobertura
+        run: |
+          poetry run pytest \
+            --cov=apps \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v \
+            --tb=short
+
+      - name: Upload de cobertura para Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: lacrei-coverage
+        continue-on-error: true
+
+      - name: Verificar segurança das dependências
+        run: |
+          pip install safety
+          poetry export -f requirements.txt | safety check --stdin
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Build da Imagem Docker
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: 🐳 Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extrair metadados da imagem
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Login no Amazon ECR
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Build e push da imagem
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_COMMIT=${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Deploy Staging (branch: staging)
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: 🌿 Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://api-staging.lacreisaude.com.br
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy no ECS (Staging)
+        run: |
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:staging"
+
+          # Pega a task definition atual e atualiza a imagem
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition lacrei-api-staging \
+            --query taskDefinition)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | python3 -c "
+          import json, sys
+          td = json.load(sys.stdin)
+          td['containerDefinitions'][0]['image'] = '$IMAGE_URI'
+          # Remove campos que não são aceitos no register
+          for key in ['taskDefinitionArn','revision','status','requiresAttributes',
+                      'compatibilities','registeredAt','registeredBy']:
+              td.pop(key, None)
+          print(json.dumps(td))
+          ")
+
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster lacrei-staging \
+            --service lacrei-api-staging \
+            --task-definition $NEW_TASK_ARN \
+            --force-new-deployment
+
+          echo "Aguardando serviço estabilizar..."
+          aws ecs wait services-stable \
+            --cluster lacrei-staging \
+            --services lacrei-api-staging
+
+          echo "✅ Deploy de staging concluído!"
+
+      - name: Smoke test — Health Check
+        run: |
+          sleep 30
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://api-staging.lacreisaude.com.br/api/v1/health/)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check falhou com status $STATUS"
+            exit 1
+          fi
+          echo "✅ Health check OK (status $STATUS)"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Deploy Produção (branch: main) com Blue/Green
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: 🏁 Deploy → Production (Blue/Green)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://api.lacreisaude.com.br
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy Blue/Green via AWS CodeDeploy
+        run: |
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
+
+          # Atualiza a task definition de produção
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition lacrei-api-production \
+            --query taskDefinition)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | python3 -c "
+          import json, sys
+          td = json.load(sys.stdin)
+          td['containerDefinitions'][0]['image'] = '$IMAGE_URI'
+          for key in ['taskDefinitionArn','revision','status','requiresAttributes',
+                      'compatibilities','registeredAt','registeredBy']:
+              td.pop(key, None)
+          print(json.dumps(td))
+          ")
+
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          # Cria deployment no CodeDeploy (Blue/Green)
+          DEPLOY_ID=$(aws deploy create-deployment \
+            --application-name lacrei-api-production \
+            --deployment-group-name lacrei-api-bg-group \
+            --revision "{
+              \"revisionType\": \"AppSpecContent\",
+              \"appSpecContent\": {
+                \"content\": \"{\\\"version\\\": 1, \\\"Resources\\\": [{\\\"TargetService\\\": {\\\"Type\\\": \\\"AWS::ECS::Service\\\", \\\"Properties\\\": {\\\"TaskDefinition\\\": \\\"$NEW_TASK_ARN\\\", \\\"LoadBalancerInfo\\\": {\\\"ContainerName\\\": \\\"lacrei-api\\\", \\\"ContainerPort\\\": 8000}}}}]}\"
+              }
+            }" \
+            --query 'deploymentId' \
+            --output text)
+
+          echo "Deployment ID: $DEPLOY_ID"
+          echo "DEPLOY_ID=$DEPLOY_ID" >> $GITHUB_ENV
+
+          # Aguarda conclusão (timeout 15 min)
+          aws deploy wait deployment-successful --deployment-id $DEPLOY_ID
+          echo "✅ Deploy Blue/Green concluído!"
+
+      - name: Smoke test — Production Health Check
+        run: |
+          sleep 60
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://api.lacreisaude.com.br/api/v1/health/)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check de produção falhou com status $STATUS"
+            exit 1
+          fi
+          echo "✅ Produção saudável!"
+
+      - name: Rollback automático em caso de falha
+        if: failure()
+        run: |
+          echo "⚠️ Falha detectada — iniciando rollback automático..."
+          if [ -n "$DEPLOY_ID" ]; then
+            aws deploy stop-deployment \
+              --deployment-id $DEPLOY_ID \
+              --auto-rollback-enabled
+          fi
+          # Alternativa: reverter para a última task definition estável
+          aws ecs update-service \
+            --cluster lacrei-production \
+            --service lacrei-api-production \
+            --task-definition lacrei-api-production:$(( $(aws ecs describe-task-definition \
+              --task-definition lacrei-api-production \
+              --query 'taskDefinition.revision') - 1 )) \
+            --force-new-deployment
+          echo "🔄 Rollback concluído!"
+
+      - name: Notificação de deploy
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          EMOJI="✅"
+          if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
+          echo "$EMOJI Deploy de produção: $STATUS — commit ${{ github.sha }}"
+          # Aqui seria integrado Slack/email notification
