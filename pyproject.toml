@@ -49,8 +49,10 @@ addopts = "--cov=apps --cov-report=term-missing --cov-report=xml"
 
 [tool.mypy]
 python_version = "3.11"
-django_settings_module = "config.settings.base"
 plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.base"
 
 [build-system]
 requires = ["poetry-core"]
