@@ -514,3 +514,4 @@ Documentados durante o desenvolvimento:
 ## 📝 Licença
 
 MIT © Lacrei Saúde — Plataforma de saúde inclusiva LGBTQIA+
+
