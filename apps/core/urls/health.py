@@ -1,8 +1,10 @@
 """Health check endpoint — used by load balancers and CI/CD pipelines."""
-from django.urls import path
+
+import time
+
 from django.db import connection
 from django.http import JsonResponse
-import time
+from django.urls import path
 
 
 def health_check(request):

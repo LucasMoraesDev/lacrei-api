@@ -33,13 +33,11 @@ SPLIT PAYMENTS (Lacrei → Profissional):
 ─────────────────────────────────────────────────────────────────────────────
 """
 
-import hashlib
 import hmac
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 
 import requests
 from django.conf import settings
@@ -57,30 +55,32 @@ class BillingType(str, Enum):
 @dataclass
 class ChargeRequest:
     """Representa uma cobrança a ser criada no Assas."""
-    customer_id: str          # ID do cliente no Assas
-    value: Decimal            # Valor em BRL
-    due_date: str             # YYYY-MM-DD
+
+    customer_id: str  # ID do cliente no Assas
+    value: Decimal  # Valor em BRL
+    due_date: str  # YYYY-MM-DD
     description: str
     billing_type: BillingType = BillingType.PIX
-    external_reference: str = ""   # UUID da consulta (Appointment.id)
+    external_reference: str = ""  # UUID da consulta (Appointment.id)
     # Split payments
-    split_wallet_id: Optional[str] = None    # Assas wallet do profissional
-    split_fixed_value: Optional[Decimal] = None
-    split_percent_value: Optional[Decimal] = None
+    split_wallet_id: str | None = None  # Assas wallet do profissional
+    split_fixed_value: Decimal | None = None
+    split_percent_value: Decimal | None = None
 
 
 @dataclass
 class ChargeResponse:
     """Resposta normalizada do Assas."""
+
     payment_id: str
     status: str
     value: Decimal
     net_value: Decimal
     billing_type: str
-    pix_qr_code: Optional[str] = None
-    pix_key: Optional[str] = None
-    bank_slip_url: Optional[str] = None
-    invoice_url: Optional[str] = None
+    pix_qr_code: str | None = None
+    pix_key: str | None = None
+    bank_slip_url: str | None = None
+    invoice_url: str | None = None
 
 
 class AssasClient:
@@ -92,15 +92,21 @@ class AssasClient:
 
     def __init__(self):
         self.api_key = getattr(settings, "ASSAS_API_KEY", "")
-        self.base_url = getattr(settings, "ASSAS_BASE_URL", "https://sandbox.asaas.com/api/v3")
+        self.base_url = getattr(
+            settings, "ASSAS_BASE_URL", "https://sandbox.asaas.com/api/v3"
+        )
         self.session = requests.Session()
-        self.session.headers.update({
-            "access_token": self.api_key,
-            "Content-Type": "application/json",
-            "User-Agent": "LacreisaúdeAPI/1.0",
-        })
+        self.session.headers.update(
+            {
+                "access_token": self.api_key,
+                "Content-Type": "application/json",
+                "User-Agent": "LacreisaúdeAPI/1.0",
+            }
+        )
 
-    def create_or_get_customer(self, professional_email: str, name: str, cpf_cnpj: str = "") -> str:
+    def create_or_get_customer(
+        self, professional_email: str, name: str, cpf_cnpj: str = ""
+    ) -> str:
         """
         Cria ou recupera um cliente no Assas pelo email.
         Retorna o customerId do Assas.
@@ -142,16 +148,29 @@ class AssasClient:
 
         # Configurar split se o profissional tem wallet Assas
         if charge.split_wallet_id:
-            payload["split"] = [{
-                "walletId": charge.split_wallet_id,
-                # Repasse fixo OU percentual
-                **({"fixedValue": float(charge.split_fixed_value)} if charge.split_fixed_value else {}),
-                **({"percentualValue": float(charge.split_percent_value)} if charge.split_percent_value else {}),
-            }]
+            payload["split"] = [
+                {
+                    "walletId": charge.split_wallet_id,
+                    # Repasse fixo OU percentual
+                    **(
+                        {"fixedValue": float(charge.split_fixed_value)}
+                        if charge.split_fixed_value
+                        else {}
+                    ),
+                    **(
+                        {"percentualValue": float(charge.split_percent_value)}
+                        if charge.split_percent_value
+                        else {}
+                    ),
+                }
+            ]
 
         logger.info(
             "Criando cobrança no Assas",
-            extra={"external_reference": charge.external_reference, "value": str(charge.value)},
+            extra={
+                "external_reference": charge.external_reference,
+                "value": str(charge.value),
+            },
         )
 
         resp = self.session.post(f"{self.base_url}/payments", json=payload)

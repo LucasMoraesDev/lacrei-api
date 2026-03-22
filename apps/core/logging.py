@@ -1,8 +1,9 @@
 """Structured JSON logging formatter."""
+
 import json
 import logging
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class JsonFormatter(logging.Formatter):
@@ -10,7 +11,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:  # type: ignore[override]
         payload: dict = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -19,10 +20,26 @@ class JsonFormatter(logging.Formatter):
         # Merge extra fields
         for key, val in record.__dict__.items():
             if key not in {
-                "args", "created", "exc_info", "exc_text", "filename",
-                "funcName", "levelname", "levelno", "lineno", "message",
-                "module", "msecs", "msg", "name", "pathname", "process",
-                "processName", "relativeCreated", "stack_info", "thread",
+                "args",
+                "created",
+                "exc_info",
+                "exc_text",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "message",
+                "module",
+                "msecs",
+                "msg",
+                "name",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "thread",
                 "threadName",
             }:
                 payload[key] = val

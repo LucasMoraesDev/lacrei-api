@@ -1,9 +1,12 @@
 """Serializers for the Appointment resource."""
-from rest_framework import serializers
+
 from django.utils import timezone
-from .models import Appointment, AppointmentStatus, AppointmentModality
+from rest_framework import serializers
+
+from apps.core.sanitizers import sanitize_phone, sanitize_text
 from apps.professionals.models import Professional
-from apps.core.sanitizers import sanitize_text, sanitize_phone
+
+from .models import Appointment, AppointmentStatus
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -16,7 +19,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
         source="professional.get_profession_display", read_only=True
     )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    modality_display = serializers.CharField(source="get_modality_display", read_only=True)
+    modality_display = serializers.CharField(
+        source="get_modality_display", read_only=True
+    )
     is_cancellable = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -61,13 +66,17 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def validate_duration_minutes(self, value: int) -> int:
         if not (15 <= value <= 480):
-            raise serializers.ValidationError("Duração deve ser entre 15 e 480 minutos.")
+            raise serializers.ValidationError(
+                "Duração deve ser entre 15 e 480 minutos."
+            )
         return value
 
     def validate_patient_name(self, value: str) -> str:
         cleaned = sanitize_text(value)
         if len(cleaned) < 2:
-            raise serializers.ValidationError("Nome do paciente deve ter ao menos 2 caracteres.")
+            raise serializers.ValidationError(
+                "Nome do paciente deve ter ao menos 2 caracteres."
+            )
         return cleaned
 
     def validate_patient_phone(self, value: str) -> str:
@@ -82,7 +91,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Cross-field: cancellation_reason required when cancelling."""
         status = attrs.get("status", getattr(self.instance, "status", None))
-        reason = attrs.get("cancellation_reason", getattr(self.instance, "cancellation_reason", ""))
+        reason = attrs.get(
+            "cancellation_reason", getattr(self.instance, "cancellation_reason", "")
+        )
         if status == AppointmentStatus.CANCELLED and not reason:
             raise serializers.ValidationError(
                 {"cancellation_reason": "Informe o motivo do cancelamento."}

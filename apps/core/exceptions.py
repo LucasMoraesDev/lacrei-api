@@ -1,9 +1,9 @@
 """Centralized exception handling for consistent JSON error responses."""
+
 import logging
+
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 logger = logging.getLogger("lacrei.error")
@@ -22,7 +22,9 @@ def custom_exception_handler(exc, context):
     """
     # Convert Django ValidationError to DRF ValidationError
     if isinstance(exc, DjangoValidationError):
-        exc = ValidationError(detail=exc.message_dict if hasattr(exc, "message_dict") else exc.messages)
+        exc = ValidationError(
+            detail=exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+        )
 
     response = exception_handler(exc, context)
 
@@ -59,7 +61,9 @@ def _get_message(data) -> str:
                 val = data[key]
                 return str(val[0]) if isinstance(val, list) else str(val)
         first_value = next(iter(data.values()), "")
-        return str(first_value[0]) if isinstance(first_value, list) else str(first_value)
+        return (
+            str(first_value[0]) if isinstance(first_value, list) else str(first_value)
+        )
     if isinstance(data, list):
         return str(data[0])
     return str(data)

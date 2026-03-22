@@ -1,6 +1,8 @@
 """Django-filter filters for Appointment resource."""
+
 import django_filters
-from .models import Appointment, AppointmentStatus, AppointmentModality
+
+from .models import Appointment, AppointmentModality, AppointmentStatus
 
 
 class AppointmentFilter(django_filters.FilterSet):

@@ -1,14 +1,16 @@
 """ViewSet for Professional resource."""
+
 import logging
+
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, filters, status
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
-from .models import Professional
-from .serializers import ProfessionalSerializer, ProfessionalListSerializer
 from .filters import ProfessionalFilter
+from .models import Professional
+from .serializers import ProfessionalListSerializer, ProfessionalSerializer
 
 logger = logging.getLogger("lacrei.access")
 
@@ -53,7 +55,11 @@ class ProfessionalViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Professional.objects.all().order_by("social_name")
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_class = ProfessionalFilter
     search_fields = ["social_name", "email", "city"]
     ordering_fields = ["social_name", "profession", "city", "created_at"]
@@ -86,8 +92,11 @@ class ProfessionalViewSet(viewsets.ModelViewSet):
     def appointments(self, request, pk=None):
         """GET /professionals/{id}/appointments/ — busca por ID do profissional."""
         from apps.appointments.serializers import AppointmentSerializer
+
         professional = self.get_object()
-        qs = professional.appointments.select_related("professional").order_by("-scheduled_at")
+        qs = professional.appointments.select_related("professional").order_by(
+            "-scheduled_at"
+        )
         serializer = AppointmentSerializer(qs, many=True, context={"request": request})
         return Response(
             {

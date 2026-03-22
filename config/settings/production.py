@@ -2,16 +2,20 @@
 Production settings for Lacrei Saúde API.
 Inherits from base and adds production-specific hardening.
 """
-from .base import *  # noqa: F401, F403
+
 import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
 from decouple import config
+from sentry_sdk.integrations.django import DjangoIntegration
+
+from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
 # ── Security ───────────────────────────────────────────────────────────────────
 SECRET_KEY = config("SECRET_KEY")  # Must be set in environment
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")])
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
+)
 
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

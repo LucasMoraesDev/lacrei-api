@@ -1,8 +1,10 @@
 """Staging settings — mirrors production but with relaxed SSL."""
-from .production import *  # noqa: F401, F403
+
 import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
 from decouple import config
+from sentry_sdk.integrations.django import DjangoIntegration
+
+from .production import *  # noqa: F401, F403
 
 SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0

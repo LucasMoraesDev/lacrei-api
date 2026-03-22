@@ -8,15 +8,16 @@ Covers:
 - Filtro por professional ID
 - Testes de erro (dados ausentes, inválidos, profissional inativo)
 """
+
 from datetime import timedelta
+
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.appointments.models import Appointment, AppointmentStatus
-from apps.professionals.models import Professional
-from tests.factories import ProfessionalFactory, AppointmentFactory
+from tests.factories import AppointmentFactory, ProfessionalFactory
 
 API_KEY_HEADER = {"HTTP_X_API_KEY": "test-api-key"}
 
@@ -61,8 +62,12 @@ class AppointmentListTest(APITestCase):
         self.assertEqual(response.data["count"], 1)
 
     def test_search_by_patient_name(self):
-        appt = AppointmentFactory(professional=self.prof_a, patient_name="Fernanda UniquePatient")
-        response = self.client.get(self.url, {"search": "UniquePatient"}, **API_KEY_HEADER)
+        appt = AppointmentFactory(
+            professional=self.prof_a, patient_name="Fernanda UniquePatient"
+        )
+        response = self.client.get(
+            self.url, {"search": "UniquePatient"}, **API_KEY_HEADER
+        )
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["id"], str(appt.id))
 
@@ -89,7 +94,9 @@ class AppointmentCreateTest(APITestCase):
         }
 
     def test_create_appointment_with_valid_data(self):
-        response = self.client.post(self.url, self.valid_payload, format="json", **API_KEY_HEADER)
+        response = self.client.post(
+            self.url, self.valid_payload, format="json", **API_KEY_HEADER
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
         self.assertEqual(response.data["status"], AppointmentStatus.SCHEDULED)
@@ -117,6 +124,7 @@ class AppointmentCreateTest(APITestCase):
 
     def test_create_fails_with_nonexistent_professional(self):
         import uuid
+
         payload = {**self.valid_payload, "professional": str(uuid.uuid4())}
         response = self.client.post(self.url, payload, format="json", **API_KEY_HEADER)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -141,7 +149,9 @@ class AppointmentRetrieveTest(APITestCase):
 
     def setUp(self):
         self.appointment = AppointmentFactory()
-        self.url = reverse("appointment-detail", kwargs={"pk": str(self.appointment.id)})
+        self.url = reverse(
+            "appointment-detail", kwargs={"pk": str(self.appointment.id)}
+        )
 
     def test_retrieve_existing_appointment(self):
         response = self.client.get(self.url, **API_KEY_HEADER)
@@ -152,6 +162,7 @@ class AppointmentRetrieveTest(APITestCase):
 
     def test_retrieve_nonexistent_returns_404(self):
         import uuid
+
         url = reverse("appointment-detail", kwargs={"pk": str(uuid.uuid4())})
         response = self.client.get(url, **API_KEY_HEADER)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -163,11 +174,16 @@ class AppointmentUpdateTest(APITestCase):
 
     def setUp(self):
         self.appointment = AppointmentFactory()
-        self.url = reverse("appointment-detail", kwargs={"pk": str(self.appointment.id)})
+        self.url = reverse(
+            "appointment-detail", kwargs={"pk": str(self.appointment.id)}
+        )
 
     def test_partial_update_notes(self):
         response = self.client.patch(
-            self.url, {"notes": "Paciente com alergia a penicilina."}, format="json", **API_KEY_HEADER
+            self.url,
+            {"notes": "Paciente com alergia a penicilina."},
+            format="json",
+            **API_KEY_HEADER,
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["notes"], "Paciente com alergia a penicilina.")
@@ -194,7 +210,9 @@ class AppointmentDeleteTest(APITestCase):
 
     def setUp(self):
         self.appointment = AppointmentFactory()
-        self.url = reverse("appointment-detail", kwargs={"pk": str(self.appointment.id)})
+        self.url = reverse(
+            "appointment-detail", kwargs={"pk": str(self.appointment.id)}
+        )
 
     def test_delete_cancels_appointment(self):
         response = self.client.delete(self.url, **API_KEY_HEADER)
@@ -218,7 +236,9 @@ class AppointmentCancelActionTest(APITestCase):
 
     def setUp(self):
         self.appointment = AppointmentFactory()
-        self.url = reverse("appointment-cancel", kwargs={"pk": str(self.appointment.id)})
+        self.url = reverse(
+            "appointment-cancel", kwargs={"pk": str(self.appointment.id)}
+        )
 
     def test_cancel_with_reason_succeeds(self):
         response = self.client.patch(
@@ -275,6 +295,7 @@ class AppointmentByProfessionalTest(APITestCase):
 
     def test_nonexistent_professional_id_returns_empty_list(self):
         import uuid
+
         response = self.client.get(
             self.url, {"professional": str(uuid.uuid4())}, **API_KEY_HEADER
         )

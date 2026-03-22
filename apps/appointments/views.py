@@ -1,14 +1,16 @@
 """ViewSet for Appointment resource."""
+
 import logging
+
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, filters, status
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from .models import Appointment, AppointmentStatus
-from .serializers import AppointmentSerializer, AppointmentListSerializer
 from .filters import AppointmentFilter
+from .models import Appointment, AppointmentStatus
+from .serializers import AppointmentListSerializer, AppointmentSerializer
 
 logger = logging.getLogger("lacrei.access")
 
@@ -51,12 +53,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     - Ação de cancelamento: PATCH /appointments/{id}/cancel/
     """
 
-    queryset = (
-        Appointment.objects
-        .select_related("professional")
-        .order_by("-scheduled_at")
+    queryset = Appointment.objects.select_related("professional").order_by(
+        "-scheduled_at"
     )
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_class = AppointmentFilter
     search_fields = ["patient_name", "patient_email", "professional__social_name"]
     ordering_fields = ["scheduled_at", "status", "created_at"]
@@ -71,6 +75,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         """Soft-cancel instead of hard delete."""
         if not instance.is_cancellable:
             from rest_framework.exceptions import ValidationError
+
             raise ValidationError(
                 f"Consultas com status '{instance.get_status_display()}' não podem ser canceladas."
             )
@@ -82,7 +87,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         summary="Cancelar consulta",
         description="Cancela a consulta informando obrigatoriamente o motivo.",
         tags=["appointments"],
-        request={"application/json": {"type": "object", "properties": {"cancellation_reason": {"type": "string"}}}},
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {"cancellation_reason": {"type": "string"}},
+            }
+        },
     )
     @action(detail=True, methods=["patch"], url_path="cancel")
     def cancel(self, request, pk=None):

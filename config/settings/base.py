@@ -2,10 +2,12 @@
 Base settings for Lacrei Saúde API.
 All environment-specific settings inherit from this.
 """
+
 import os
-from pathlib import Path
-from decouple import config, Csv
 from datetime import timedelta
+from pathlib import Path
+
+from decouple import Csv, config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -91,7 +93,9 @@ DATABASES = {
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -176,7 +180,9 @@ CORS_ALLOW_HEADERS = [
 
 # ── API Key ────────────────────────────────────────────────────────────────────
 API_KEY_HEADER = "HTTP_X_API_KEY"
-VALID_API_KEYS = config("VALID_API_KEYS", default="dev-api-key-change-in-prod", cast=Csv())
+VALID_API_KEYS = config(
+    "VALID_API_KEYS", default="dev-api-key-change-in-prod", cast=Csv()
+)
 
 # ── drf-spectacular (Swagger/OpenAPI) ─────────────────────────────────────────
 SPECTACULAR_SETTINGS = {

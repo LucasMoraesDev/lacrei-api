@@ -5,9 +5,11 @@ Stores healthcare professionals who can be linked to appointments.
 All fields are sanitized at the serializer level before being persisted.
 Django ORM uses parameterized queries — SQL injection is not possible.
 """
+
 import uuid
-from django.db import models
+
 from django.core.validators import RegexValidator
+from django.db import models
 
 
 class ProfessionChoices(models.TextChoices):

@@ -1,7 +1,8 @@
 """Custom authentication backends para Lacrei Saúde API."""
+
 import logging
+
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -13,6 +14,7 @@ class APIKeyUser:
     Objeto que representa um cliente autenticado via API Key.
     Implementa a interface mínima que o DRF espera de request.user.
     """
+
     is_authenticated = True
     is_active = True
 

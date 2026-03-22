@@ -4,10 +4,12 @@ Appointment model for Lacrei Saúde API.
 Each appointment is linked to a Professional via FK.
 Cascade behaviour is PROTECT to prevent accidental data loss.
 """
+
 import uuid
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-from django.core.exceptions import ValidationError
 
 
 class AppointmentStatus(models.TextChoices):
@@ -102,7 +104,11 @@ class Appointment(models.Model):
 
     def clean(self) -> None:
         """Business rule: scheduled_at must be in the future for new appointments."""
-        if self._state.adding and self.scheduled_at and self.scheduled_at <= timezone.now():
+        if (
+            self._state.adding
+            and self.scheduled_at
+            and self.scheduled_at <= timezone.now()
+        ):
             raise ValidationError(
                 {"scheduled_at": "A data da consulta deve ser no futuro."}
             )

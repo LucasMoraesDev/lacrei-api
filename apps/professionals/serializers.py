@@ -4,9 +4,12 @@ Serializers for the Professional resource.
 All incoming string fields are sanitized with bleach to prevent
 XSS, and the ORM's parameterized queries prevent SQL injection.
 """
+
 from rest_framework import serializers
+
+from apps.core.sanitizers import sanitize_cep, sanitize_phone, sanitize_text
+
 from .models import Professional, ProfessionChoices
-from apps.core.sanitizers import sanitize_text, sanitize_phone, sanitize_cep
 
 
 class ProfessionalSerializer(serializers.ModelSerializer):
@@ -52,7 +55,9 @@ class ProfessionalSerializer(serializers.ModelSerializer):
     def validate_social_name(self, value: str) -> str:
         cleaned = sanitize_text(value)
         if len(cleaned) < 2:
-            raise serializers.ValidationError("Nome social deve ter ao menos 2 caracteres.")
+            raise serializers.ValidationError(
+                "Nome social deve ter ao menos 2 caracteres."
+            )
         return cleaned
 
     def validate_council_number(self, value: str) -> str:
@@ -76,7 +81,9 @@ class ProfessionalSerializer(serializers.ModelSerializer):
     def validate_state(self, value: str) -> str:
         cleaned = sanitize_text(value).upper()
         if len(cleaned) != 2:
-            raise serializers.ValidationError("Use a sigla do estado com 2 letras (ex.: SP).")
+            raise serializers.ValidationError(
+                "Use a sigla do estado com 2 letras (ex.: SP)."
+            )
         return cleaned
 
     def validate_postal_code(self, value: str) -> str:
@@ -100,7 +107,9 @@ class ProfessionalSerializer(serializers.ModelSerializer):
 class ProfessionalListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list endpoints."""
 
-    profession_display = serializers.CharField(source="get_profession_display", read_only=True)
+    profession_display = serializers.CharField(
+        source="get_profession_display", read_only=True
+    )
 
     class Meta:
         model = Professional

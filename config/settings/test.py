@@ -1,4 +1,5 @@
 """Test settings — fast, in-memory SQLite, no external services."""
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
@@ -27,5 +28,5 @@ LOGGING = {
 }
 
 # Desabilita WhiteNoise nos testes — evita erro de arquivo estático não encontrado
-MIDDLEWARE = [m for m in MIDDLEWARE if 'whitenoise' not in m.lower()]  # noqa: F405
+MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m.lower()]  # noqa: F405
 STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"

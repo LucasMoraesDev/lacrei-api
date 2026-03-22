@@ -1,10 +1,11 @@
 """Pytest configuration and shared fixtures."""
+
 import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from tests.factories import ProfessionalFactory, AppointmentFactory
+from tests.factories import AppointmentFactory, ProfessionalFactory
 
 
 @pytest.fixture

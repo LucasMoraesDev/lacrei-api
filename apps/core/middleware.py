@@ -1,4 +1,5 @@
 """Request logging middleware for Lacrei Saúde API."""
+
 import logging
 import time
 import uuid

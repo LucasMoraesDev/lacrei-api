@@ -1,8 +1,8 @@
 """
 Tests for health check endpoint and security hardening.
 """
-from django.test import TestCase, override_settings
-from django.urls import reverse
+
+from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -58,22 +58,26 @@ class SanitizationTest(APITestCase):
 
     def test_sanitize_text_strips_html(self):
         from apps.core.sanitizers import sanitize_text
+
         result = sanitize_text("<script>alert('xss')</script>Hello")
         self.assertNotIn("<script>", result)
         self.assertIn("Hello", result)
 
     def test_sanitize_text_collapses_whitespace(self):
         from apps.core.sanitizers import sanitize_text
+
         result = sanitize_text("  Hello   World  ")
         self.assertEqual(result, "Hello World")
 
     def test_sanitize_phone_removes_special_chars(self):
         from apps.core.sanitizers import sanitize_phone
+
         result = sanitize_phone("+55 (11) 9 8888-7777")
         # Should only keep valid phone characters
         self.assertNotIn("@", result)
 
     def test_sanitize_cep_removes_invalid_chars(self):
         from apps.core.sanitizers import sanitize_cep
+
         result = sanitize_cep("01310-100abc")
         self.assertNotIn("abc", result)

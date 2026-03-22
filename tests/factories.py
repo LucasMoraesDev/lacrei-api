@@ -1,12 +1,14 @@
 """Factory Boy factories for test data generation."""
-import factory
-from factory.django import DjangoModelFactory
-from faker import Faker
-from django.utils import timezone
+
 from datetime import timedelta
 
+import factory
+from django.utils import timezone
+from factory.django import DjangoModelFactory
+from faker import Faker
+
+from apps.appointments.models import Appointment, AppointmentModality, AppointmentStatus
 from apps.professionals.models import Professional, ProfessionChoices
-from apps.appointments.models import Appointment, AppointmentStatus, AppointmentModality
 
 fake = Faker("pt_BR")
 

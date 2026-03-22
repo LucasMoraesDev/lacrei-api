@@ -8,6 +8,7 @@ Covers:
 - Soft-delete
 - Busca por profissional via /appointments endpoint
 """
+
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
@@ -15,7 +16,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.professionals.models import Professional
-from tests.factories import ProfessionalFactory, AppointmentFactory
+from tests.factories import AppointmentFactory, ProfessionalFactory
 
 
 def get_jwt_header(user: User) -> dict:
@@ -71,7 +72,9 @@ class ProfessionalListTest(APITestCase):
 
     def test_filter_by_profession(self):
         ProfessionalFactory(profession="psicologo", is_active=True)
-        response = self.client.get(self.url, {"profession": "psicologo"}, **API_KEY_HEADER)
+        response = self.client.get(
+            self.url, {"profession": "psicologo"}, **API_KEY_HEADER
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for item in response.data["results"]:
             self.assertEqual(item["profession"], "psicologo")
@@ -109,7 +112,9 @@ class ProfessionalCreateTest(APITestCase):
         }
 
     def test_create_professional_with_valid_data(self):
-        response = self.client.post(self.url, self.valid_payload, format="json", **API_KEY_HEADER)
+        response = self.client.post(
+            self.url, self.valid_payload, format="json", **API_KEY_HEADER
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
         self.assertEqual(response.data["social_name"], "Dr. Carlos Silva")
@@ -121,7 +126,9 @@ class ProfessionalCreateTest(APITestCase):
 
     def test_create_fails_with_duplicate_email(self):
         ProfessionalFactory(email="carlos.silva@example.com")
-        response = self.client.post(self.url, self.valid_payload, format="json", **API_KEY_HEADER)
+        response = self.client.post(
+            self.url, self.valid_payload, format="json", **API_KEY_HEADER
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_fails_with_invalid_profession(self):
@@ -136,7 +143,10 @@ class ProfessionalCreateTest(APITestCase):
 
     def test_html_in_social_name_is_stripped(self):
         """Sanitization must strip XSS attempts."""
-        payload = {**self.valid_payload, "social_name": "<script>alert(1)</script>Dr. Carlos"}
+        payload = {
+            **self.valid_payload,
+            "social_name": "<script>alert(1)</script>Dr. Carlos",
+        }
         response = self.client.post(self.url, payload, format="json", **API_KEY_HEADER)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertNotIn("<script>", response.data["social_name"])
@@ -144,10 +154,15 @@ class ProfessionalCreateTest(APITestCase):
 
     def test_sql_injection_in_name_is_safe(self):
         """ORM parameterized queries prevent SQL injection — data is stored safely."""
-        payload = {**self.valid_payload, "social_name": "'; DROP TABLE professionals; --"}
+        payload = {
+            **self.valid_payload,
+            "social_name": "'; DROP TABLE professionals; --",
+        }
         response = self.client.post(self.url, payload, format="json", **API_KEY_HEADER)
         # Should succeed (data is stored as plain text, not executed as SQL)
-        self.assertIn(response.status_code, [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST])
+        self.assertIn(
+            response.status_code, [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+        )
         # DB must still be alive
         self.assertEqual(Professional.objects.count(), Professional.objects.count())
 
@@ -157,7 +172,9 @@ class ProfessionalRetrieveTest(APITestCase):
 
     def setUp(self):
         self.professional = ProfessionalFactory()
-        self.url = reverse("professional-detail", kwargs={"pk": str(self.professional.id)})
+        self.url = reverse(
+            "professional-detail", kwargs={"pk": str(self.professional.id)}
+        )
 
     def test_retrieve_existing_professional(self):
         response = self.client.get(self.url, **API_KEY_HEADER)
@@ -166,6 +183,7 @@ class ProfessionalRetrieveTest(APITestCase):
 
     def test_retrieve_nonexistent_returns_404(self):
         import uuid
+
         url = reverse("professional-detail", kwargs={"pk": str(uuid.uuid4())})
         response = self.client.get(url, **API_KEY_HEADER)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -182,7 +200,9 @@ class ProfessionalUpdateTest(APITestCase):
 
     def setUp(self):
         self.professional = ProfessionalFactory()
-        self.url = reverse("professional-detail", kwargs={"pk": str(self.professional.id)})
+        self.url = reverse(
+            "professional-detail", kwargs={"pk": str(self.professional.id)}
+        )
 
     def test_partial_update_social_name(self):
         response = self.client.patch(
@@ -193,7 +213,9 @@ class ProfessionalUpdateTest(APITestCase):
 
     def test_partial_update_does_not_affect_other_fields(self):
         original_email = self.professional.email
-        self.client.patch(self.url, {"social_name": "Novo Nome"}, format="json", **API_KEY_HEADER)
+        self.client.patch(
+            self.url, {"social_name": "Novo Nome"}, format="json", **API_KEY_HEADER
+        )
         self.professional.refresh_from_db()
         self.assertEqual(self.professional.email, original_email)
 
@@ -209,7 +231,9 @@ class ProfessionalDeleteTest(APITestCase):
 
     def setUp(self):
         self.professional = ProfessionalFactory()
-        self.url = reverse("professional-detail", kwargs={"pk": str(self.professional.id)})
+        self.url = reverse(
+            "professional-detail", kwargs={"pk": str(self.professional.id)}
+        )
 
     def test_delete_soft_deletes_professional(self):
         response = self.client.delete(self.url, **API_KEY_HEADER)
@@ -229,7 +253,10 @@ class ProfessionalDeleteTest(APITestCase):
         AppointmentFactory.create_batch(2, professional=self.professional)
         self.client.delete(self.url, **API_KEY_HEADER)
         from apps.appointments.models import Appointment
-        self.assertEqual(Appointment.objects.filter(professional=self.professional).count(), 2)
+
+        self.assertEqual(
+            Appointment.objects.filter(professional=self.professional).count(), 2
+        )
 
 
 class ProfessionalAppointmentsActionTest(APITestCase):
@@ -240,7 +267,9 @@ class ProfessionalAppointmentsActionTest(APITestCase):
         self.other_professional = ProfessionalFactory()
         AppointmentFactory.create_batch(3, professional=self.professional)
         AppointmentFactory.create_batch(2, professional=self.other_professional)
-        self.url = reverse("professional-appointments", kwargs={"pk": str(self.professional.id)})
+        self.url = reverse(
+            "professional-appointments", kwargs={"pk": str(self.professional.id)}
+        )
 
     def test_returns_only_professional_appointments(self):
         response = self.client.get(self.url, **API_KEY_HEADER)
@@ -250,4 +279,6 @@ class ProfessionalAppointmentsActionTest(APITestCase):
 
     def test_returns_correct_professional_name(self):
         response = self.client.get(self.url, **API_KEY_HEADER)
-        self.assertEqual(response.data["professional_name"], self.professional.social_name)
+        self.assertEqual(
+            response.data["professional_name"], self.professional.social_name
+        )
