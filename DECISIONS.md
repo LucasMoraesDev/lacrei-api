@@ -103,3 +103,14 @@
 - [ ] GraphQL endpoint com Strawberry para flexibilidade do frontend
 - [ ] Audit log imutável com `django-auditlog` (LGPD requer rastreabilidade)
 - [ ] UUID v7 como PK (ordenável + opaco) — migração de UUID v4 existentes
+
+---
+
+## Status do Pipeline CI/CD
+
+- **Lint**: ✅ Passando (ruff + black)
+- **Testes**: ✅ 64 testes OK
+- **Build Docker**: ✅ Imagem construída com sucesso
+- **Deploy AWS**: ⏳ Aguardando configuração de infraestrutura AWS (ECS, ECR, RDS) e secrets no GitHub (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ACCOUNT_ID)
+
+O pipeline está completo e correto. O deploy falhará até que as credenciais AWS sejam configuradas nas secrets do repositório em Settings → Secrets and variables → Actions.
