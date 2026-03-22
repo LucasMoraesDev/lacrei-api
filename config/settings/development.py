@@ -3,7 +3,7 @@
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
-SECRET_KEY = "dev-secret-key-not-for-production"
+SECRET_KEY = "dev-secret-key-not-for-production"  # noqa: S105
 
 CORS_ALLOW_ALL_ORIGINS = True  # Only in dev!
 

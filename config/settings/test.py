@@ -3,7 +3,7 @@
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
-SECRET_KEY = "test-secret-key-not-for-production"
+SECRET_KEY = "test-secret-key-not-for-production"  # noqa: S105
 
 DATABASES = {
     "default": {
