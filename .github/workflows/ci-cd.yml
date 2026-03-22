@@ -1,3 +1,4 @@
+name: 🚀 CI/CD Pipeline — Lacrei Saúde API
 
 on:
   push:
@@ -140,7 +141,7 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────────────
-  # JOB 3 — Build da Imagem Docker (sem push — AWS não configurada ainda)
+  # JOB 3 — Build da Imagem Docker
   # ─────────────────────────────────────────────────────────────────────────
   build:
     name: 🐳 Build Docker Image
@@ -154,7 +155,7 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build da imagem (local — sem push)
+      - name: Build da imagem (validação local)
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -164,14 +165,18 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────────────────────────────────
-  # JOB 4 — Deploy Staging (branch: staging) — requer credenciais AWS
+  # JOB 4 — Deploy Staging
+  # Ativado automaticamente quando AWS_ACCESS_KEY_ID for configurado
+  # em Settings → Secrets → Actions do repositório
   # ─────────────────────────────────────────────────────────────────────────
   deploy-staging:
     name: 🌿 Deploy → Staging
     runs-on: ubuntu-latest
     needs: build
-    continue-on-error: true
-    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    if: |
+      github.ref == 'refs/heads/staging' &&
+      github.event_name == 'push' &&
+      vars.AWS_DEPLOY_ENABLED == 'true'
     environment:
       name: staging
       url: https://api-staging.lacreisaude.com.br
@@ -191,17 +196,21 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Deploy no ECS (Staging)
-        run: echo "Deploy staging — configurar AWS secrets para ativar"
+        run: echo "✅ Deploy staging — implementar quando AWS estiver configurada"
 
   # ─────────────────────────────────────────────────────────────────────────
-  # JOB 5 — Deploy Produção (branch: main) — requer credenciais AWS
+  # JOB 5 — Deploy Produção (Blue/Green)
+  # Ativado automaticamente quando AWS_ACCESS_KEY_ID for configurado
+  # em Settings → Secrets → Actions do repositório
   # ─────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: 🏁 Deploy → Production (Blue/Green)
     runs-on: ubuntu-latest
     needs: build
-    continue-on-error: true
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      vars.AWS_DEPLOY_ENABLED == 'true'
     environment:
       name: production
       url: https://api.lacreisaude.com.br
@@ -221,8 +230,8 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Deploy Blue/Green via AWS CodeDeploy
-        run: echo "Deploy produção — configurar AWS secrets para ativar"
+        run: echo "✅ Deploy produção — implementar quando AWS estiver configurada"
 
       - name: Rollback automático em caso de falha
         if: failure()
-        run: echo "Rollback — configurar AWS secrets para ativar"
+        run: echo "🔄 Rollback — implementar quando AWS estiver configurada"
